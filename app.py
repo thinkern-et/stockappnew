@@ -7,6 +7,8 @@ from textblob import TextBlob  # 감성 분석 라이브러리 추가
 import matplotlib.pyplot as plt
 import datetime
 
+warnings.filterwarnings('ignore')
+st.set_page_config(page_title='나만의 AI 주식 예측 대시보드', layout="wide")
 # --- 뉴스 감성 분석 함수 ---
 def get_sentiment_score(ticker):
     try:
