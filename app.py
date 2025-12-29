@@ -30,7 +30,7 @@ def run_enhanced_analysis(df, ticker):
 
     close_series = df['Close'].squeeze()
     sentiment = get_sentiment_score(ticker)
-    return_pct=((predicted_price-current_price)/current_price)*100)
+    return_pct=((predicted_price-current_price)/(current_price)*100)
     # Prophet 데이터 준비
     p_df = df[['Close']].reset_index()
     p_df.columns = ['ds', 'y']
