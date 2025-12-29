@@ -69,10 +69,14 @@ if st.sidebar.button("분석 시작"):
         # 결과 표시
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("현재가", f"{res['current_p']:.2f}")
-        col2.metric("예측가", f"{res['pred_p']:.2f}")
-        col3.metric("RSI", f"{res['rsi']:.2f}")
+        col2.metric("30일 후 예측가", f"{res['pred_p']:.2f}", f"{res['return_pct']:.2f}%")
+        col3.metric("RSI(상대 강도)", f"{res['rsi']:.2f}")
         col4.metric("감성 점수", f"{res['sentiment']:.2f}")
+        
 
-        st.pyplot(res['model'].plot(res['forecast']))
+        st.subheader('향후 30일 가격 예측 차트')
+        fig=res['model'].plot(res['forecast'])
+        plt.axvline(x=df.index[-1], color="red", linestyle="--")
+        st.pyplot(fig)
     except Exception as e:
         st.error(f"오류 발생: {e}")
