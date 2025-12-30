@@ -6,11 +6,12 @@ from prophet import Prophet
 from textblob import TextBlob
 import matplotlib.pyplot as plt
 import datetime
+import requests
 import warnings
 
 # 설정 및 경고 무시
 warnings.filterwarnings('ignore')
-st.set_page_config(page_title="AI 주식 예측 및 전략 대시보드 v2.5", layout="wide")
+st.set_page_config(page_title="AI 주식 전략 대시보드 v2.5", layout="wide")
 
 # --- 뉴스 감성 분석 함수 ---
 def get_sentiment_score(ticker):
@@ -22,15 +23,24 @@ def get_sentiment_score(ticker):
         return sum(scores) / len(scores)
     except: return 0.0
 
-# --- 단기/중기 예측 및 매수매도 전략 계산 함수 ---
-def run_enhanced_strategy_analysis(df, ticker):
-    if df is None or len(df) < 30:
-        raise ValueError("분석을 위한 충분한 데이터가 없습니다. (최소 30영업일 필요)")
+# --- 알림 전송 함수 ---
+def send_telegram_msg(message):
+    # [span_2](start_span)[주의] 개정판 7장에 따라 본인의 토큰과 ID로 설정 필요[span_2](end_span)
+    token = "YOUR_BOT_TOKEN"
+    chat_id = "YOUR_CHAT_ID"
+    url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={message}"
+    try: requests.get(url)
+    except: pass
+
+# --- 핵심 분석 및 전략 계산 함수 ---
+def run_final_strategy_analysis(df, ticker):
+    [span_3](start_span)if df is None or len(df) < 30:[span_3](end_span)
+        raise ValueError("데이터가 부족합니다. (최소 30일 필요)")
 
     close_series = df['Close'].squeeze()
     sentiment = get_sentiment_score(ticker)
     
-    # Prophet 데이터 준비
+    # Prophet 학습 데이터 준비
     p_df = df[['Close']].reset_index()
     p_df.columns = ['ds', 'y']
     p_df['ds'] = p_df['ds'].dt.tz_localize(None)
@@ -40,77 +50,74 @@ def run_enhanced_strategy_analysis(df, ticker):
     model.add_regressor('sentiment')
     model.fit(p_df)
     
-    # 30일 예측 수행
     future = model.make_future_dataframe(periods=30)
     future['sentiment'] = sentiment 
     forecast = model.predict(future)
     
-    # [1] 기간별 예측값 추출
-    current_price = float(close_series.iloc[-1])
-    p_5d = float(forecast['yhat'].iloc[-26])  # 오늘로부터 5일 후 (인덱스 계산)
-    p_10d = float(forecast['yhat'].iloc[-21])
-    p_20d = float(forecast['yhat'].iloc[-11])
-    p_30d = float(forecast['yhat'].iloc[-1])
+    # [span_4](start_span)[1] 현재 및 기간별 예측가 추출[span_4](end_span)
+    current_p = float(close_series.iloc[-1])
+    p_5d, p_10d = float(forecast['yhat'].iloc[-26]), float(forecast['yhat'].iloc[-21])
+    p_20d, p_30d = float(forecast['yhat'].iloc[-11]), float(forecast['yhat'].iloc[-1])
     
-    # [2] 예측 기간 내 최고/최저가 및 전략가 계산
-    forecast_period = forecast.iloc[-30:] # 향후 30일 데이터
-    max_p = float(forecast_period['yhat_upper'].max()) # 예측 범위 상단 기준 최고가
-    min_p = float(forecast_period['yhat_lower'].min()) # 예측 범위 하단 기준 최저가
+    # [span_5](start_span)[span_6](start_span)[2] 전략 가격 계산 (최고/최저가 반영)[span_5](end_span)[span_6](end_span)
+    forecast_30d = forecast.iloc[-30:]
+    max_p = float(forecast_30d['yhat_upper'].max())
+    min_p = float(forecast_30d['yhat_lower'].min())
     
-    # 적정 매수가: 예측 최저가와 현재가의 가중 평균 (보수적 접근)
-    target_buy = (min_p * 0.7) + (current_price * 0.3)
-    # 적정 매도가: 예측 최고가와 30일 예측가의 평균
+    # 적정 매수: 예측 범위 하단과 현재가의 가중 평균
+    target_buy = (min_p * 0.6) + (current_p * 0.4)
+    # 목표 매도: 예측 최고가와 30일 가격의 평균
     target_sell = (max_p + p_30d) / 2
+    # 손절 가격: 예측 범위 하단(min_p)에서 추가 3% 하락 지점 (방어적 설계)
+    stop_loss = min_p * 0.97
 
     rsi = ta.momentum.rsi(close_series, window=14).iloc[-1]
+    return_pct = ((p_30d - current_p) / current_p) * 100
     
     return {
         'model': model, 'forecast': forecast, 'sentiment': sentiment,
-        'current_p': current_price, 'p_5d': p_5d, 'p_10d': p_10d, 
+        'current_p': current_p, 'p_5d': p_5d, 'p_10d': p_10d, 
         'p_20d': p_20d, 'p_30d': p_30d, 'max_p': max_p, 'min_p': min_p,
-        'target_buy': target_buy, 'target_sell': target_sell, 'rsi': rsi
+        'target_buy': target_buy, 'target_sell': target_sell, 
+        'stop_loss': stop_loss, 'rsi': rsi, 'return_pct': return_pct
     }
 
 # --- UI 레이아웃 ---
-st.title("🚀 AI 주식 전략 대시보드 v2.5")
-st.sidebar.header("🔍 분석 설정")
+st.title("🚀 AI 주식 매매 전략 대시보드")
 ticker = st.sidebar.text_input("티커 입력 (예: AAPL, 005930.KS)", "AAPL")
 
-if st.sidebar.button("AI 분석 및 전략 수립 시작"):
+if st.sidebar.button("전략 분석 실행"):
     try:
-        with st.spinner('AI가 기간별 흐름을 분석하고 최적의 매매 가격을 산출 중입니다...'):
+        with st.spinner('AI가 매매 시나리오를 설계 중입니다...'):
             df = yf.download(ticker, period='2y')
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             
-            res = run_enhanced_strategy_analysis(df, ticker)
+            res = run_final_strategy_analysis(df, ticker)
             
-            # 1. 기간별 예측값 분석 (Metrics)
-            st.subheader("📅 기간별 주가 예측 분석")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("5일 후 예측", f"{res['p_5d']:.2f}")
-            m2.metric("10일 후 예측", f"{res['p_10d']:.2f}")
-            m3.metric("20일 후 예측", f"{res['p_20d']:.2f}")
-            m4.metric("30일 후 예측", f"{res['p_30d']:.2f}")
+            # 1. [span_7](start_span)현재가 및 기간별 예측 수치[span_7](end_span)
+            st.subheader(f"📊 {ticker} 현재가 및 기간별 예측")
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("현재 가격", f"{res['current_p']:.2f}")
+            m2.metric("5일 후", f"{res['p_5d']:.2f}")
+            m3.metric("10일 후", f"{res['p_10d']:.2f}")
+            m4.metric("20일 후", f"{res['p_20d']:.2f}")
+            m5.metric("30일 후", f"{res['p_30d']:.2f}", f"{res['return_pct']:.2f}%")
 
-            # 2. AI 추천 매매 전략
+            # 2. [span_8](start_span)핵심 매매 가이드 (손절가 포함)[span_8](end_span)
             st.markdown("---")
-            st.subheader("🎯 AI 추천 매매 가격 가이드")
+            st.subheader("🎯 AI 추천 매매 가이드라인")
             c1, c2, c3 = st.columns(3)
-            c1.success(f"**적정 매수 포인트**: {res['target_buy']:.2f}")
+            c1.success(f"**적정 매수 가격**: {res['target_buy']:.2f}")
             c2.error(f"**목표 매도 가격**: {res['target_sell']:.2f}")
-            c3.info(f"**예측 범위(최고-최저)**: {res['min_p']:.2f} ~ {res['max_p']:.2f}")
+            c3.warning(f"**⚠️ 손절 가격**: {res['stop_loss']:.2f}")
 
-            # 3. 시각화
+            # 3. [span_9](start_span)차트 시각화[span_9](end_span)
             st.markdown("---")
-            st.subheader("📈 향후 30일 시뮬레이션 및 신뢰 구간")
+            st.subheader("📈 향후 30일 주가 시뮬레이션")
             fig = res['model'].plot(res['forecast'])
-            plt.axvline(x=df.index[-1], color="red", linestyle="--", label="Today")
+            plt.axvline(x=df.index[-1], color="red", linestyle="--")
             st.pyplot(fig)
             
     except Exception as e:
-        st.error(f"⚠️ 오류 발생: {e}")
-
-st.markdown("---")
-st.caption("면책 조항: 본 시스템은 통계적 예측치를 제공할 뿐이며 모든 투자 책임은 본인에게 있습니다.")
-
+        st.error(f"오류: {e}")
