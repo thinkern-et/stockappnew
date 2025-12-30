@@ -80,7 +80,7 @@ def run_final_strategy_analysis(df, ticker):
     }
 
 # --- UI 레이아웃 ---
-st.title("🚀 AI 주식 매매 전략 대시보드 v2.5")
+st.title("🚀 Stock Price Prediction v2.5")
 st.markdown("---")
 
 ticker = st.sidebar.text_input("티커 입력 (예: AAPL, 005930.KS)", "AAPL")
