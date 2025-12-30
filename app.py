@@ -123,8 +123,8 @@ if menu == "🔍 실시간 종목 스크리닝":
             st.info("현재 조건을 만족하는 급등 유망 종목이 없습니다.")
 
 # [모드 2] 단일 종목 정밀 분석
-elif menu == "🎯 단일 종목 정밀 분석":
-    st.subheader("🎯 특정 종목 정밀 분석 및 매매 전략")
+elif menu == "🎯 단일 종목 검색":
+    st.subheader("🎯 단일 종목 전략")
     
     # 입력창 레이아웃 구성
     col_input, col_btn = st.columns([3, 1])
