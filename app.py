@@ -132,7 +132,7 @@ elif menu == "🎯 단일 종목 정밀 분석":
         target_ticker = st.text_input("분석할 티커를 입력하세요", placeholder="예: NVDA, AAPL, 005930.KS").upper()
     with col_btn:
         st.write(" ") # 수직 정렬을 위한 여백
-        start_analyze = st.button("정밀 전략 수립 실행")
+        start_analyze = st.button("분석 시작")
 
     if start_analyze:
         if not target_ticker:
