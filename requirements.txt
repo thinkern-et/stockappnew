@@ -5,3 +5,4 @@ prophet
 matplotlib
 streamlit
 textblob
+pandas-datareader
