@@ -84,11 +84,11 @@ def run_full_analysis(ticker):
     }
 
 # --- UI 레이아웃 설계 ---
-st.title("🤖 AI Stock Trade-Aid v3.5")
+st.title("🤖 Stock Trade-Aid v3.5")
 st.markdown("---")
 
-st.sidebar.header("🕹️ Control Center ")
-menu = st.sidebar.radio("모드 선택", ["🔍 실시간 종목 스크리닝", "🎯 단일 종목 분석"])
+st.sidebar.header("🕹️ Sidebar ")
+menu = st.sidebar.radio("모드 선택", ["🔍 실시간 종목 스크리닝", "🎯 단일 종목 정밀 분석"])
 
 # [모드 1] 실시간 종목 스크리닝
 if menu == "🔍 실시간 종목 스크리닝":
